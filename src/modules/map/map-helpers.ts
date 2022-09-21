@@ -1,6 +1,6 @@
 import { feature, merge } from 'topojson';
-
 import { RkiCountyFeatureAttributes, RkiFeatureData } from '../data-loading';
+
 
 export type CountyMapInfo = {
   'ID_0': number,
@@ -20,15 +20,20 @@ export type CountyMapInfo = {
 
 type GeoDingsi = GeoJSON.FeatureCollection<GeoJSON.MultiPolygon, CountyMapInfo>;
 
+let cachedCountyMap: ReturnType<loadCountyMap>;
+
 export async function loadCountyMap()
-  : Promise<GeoJSON.FeatureCollection<GeoJSON.MultiPolygon, CountyMapInfo>>
-{
+  : Promise<GeoJSON.FeatureCollection<GeoJSON.MultiPolygon, CountyMapInfo>> {
+  if (cachedCountyMap !== undefined) {
+    return cachedCountyMap;
+  }
+
   const topo: TopoJSON.Topology = await (await fetch('./map-data/county-map.topo.json')).json();
   const berlinTopoPromise = loadBerlinMap();
   const geo = feature(topo, topo.objects['county-map']) as GeoDingsi;
 
   function mergeCounties(targetId: number, sourceIds: number[]) {
-    const needsFilter = (elem: GeoJSON.Feature) => 
+    const needsFilter = (elem: GeoJSON.Feature) =>
       ([targetId, ...sourceIds].includes(elem?.properties?.ID_3));
     const merged = merge(
       topo,
@@ -39,7 +44,7 @@ export async function loadCountyMap()
 
     const [source,] = geo.features.filter(needsFilter);
     geo.features = geo.features.filter(elem => !needsFilter(elem));
-    geo.features.push({...source, geometry: merged as any});
+    geo.features.push({ ...source, geometry: merged as any });
   }
 
   mergeCounties(188, [191]);
@@ -74,33 +79,34 @@ export async function loadCountyMap()
 
   const berlinTopo = await berlinTopoPromise;
   const berlinTopoObjects = berlinTopo.objects['berliner-bezirke'] as
-    TopoJSON.GeometryCollection<{spatial_alias: string}>;
+    TopoJSON.GeometryCollection<{ spatial_alias: string }>;
 
-  
+
   geo.features = geo.features.filter(elem => elem.properties.NAME_3 !== 'Berlin');
-  for(const [key, berlinCountyTopo] of Array.from(berlinTopoObjects.geometries.entries())){
+  for (const [key, berlinCountyTopo] of Array.from(berlinTopoObjects.geometries.entries())) {
     const converted = feature(berlinTopo, berlinCountyTopo) as GeoJSON.Feature;
     geo.features.push({
       ...converted,
       id: 9000 + key,
       properties: {
-        ENGTYPE_3: 'Rural district', 
-        ID_0: 86, 
-        ID_1: 9, 
-        ID_2: 23, 
-        ID_3: 9000 + key , 
-        ISO: 'DEU', 
-        NAME_0: 'Germany', 
-        NAME_1: 'Berlin', 
-        NAME_2: 'Berlin', 
-        NAME_3: converted.properties?.spatial_alias, 
-        NL_NAME_3: null, 
-        TYPE_3: 'Landkreise', 
+        ENGTYPE_3: 'Rural district',
+        ID_0: 86,
+        ID_1: 9,
+        ID_2: 23,
+        ID_3: 9000 + key,
+        ISO: 'DEU',
+        NAME_0: 'Germany',
+        NAME_1: 'Berlin',
+        NAME_2: 'Berlin',
+        NAME_3: converted.properties?.spatial_alias,
+        NL_NAME_3: null,
+        TYPE_3: 'Landkreise',
         VARNAME_3: null,
       }
     } as unknown as GeoJSON.Feature<GeoJSON.MultiPolygon, CountyMapInfo>);
   }
 
+  cachedCountyMap = geo;
   return geo;
 }
 
@@ -108,7 +114,7 @@ async function loadBerlinMap() {
   return await (await (fetch('./map-data/berlin-counties.topo.json'))).json();
 }
 
-export type CityInfo = {cityLabel: string, population: number, coordinates: [number, number]}
+export type CityInfo = { cityLabel: string, population: number, coordinates: [number, number] }
 export async function loadCities(): Promise<CityInfo[]> {
   return await (await fetch('./map-data/cities-mid-large.json')).json();
 }
@@ -127,19 +133,6 @@ export async function loadEuMap(): Promise<GeoJSON.FeatureCollection<GeoJSON.Mul
   return geo as GeoJSON.FeatureCollection<GeoJSON.MultiPolygon>;
 }
 
-export function color(sevenDaysInfectionsPer100k: number | undefined): string {
-  if (sevenDaysInfectionsPer100k == undefined) return '#fff';
-
-  if (sevenDaysInfectionsPer100k == 0) return '#d2d2d2';
-  if (sevenDaysInfectionsPer100k <= 5) return '#d7d3af';
-  if (sevenDaysInfectionsPer100k <= 25) return '#d7d288';
-  if (sevenDaysInfectionsPer100k <= 50) return '#cd9406';
-  if (sevenDaysInfectionsPer100k <= 100) return '#af2632';
-  if (sevenDaysInfectionsPer100k <= 500) return '#8c0619';
-  return '#fff';
-}
-
-
 export function rkiFeatureByMapId(
   rkiData: RkiFeatureData<RkiCountyFeatureAttributes>,
   mapId: number
@@ -151,7 +144,7 @@ export function rkiFeatureByMapId(
 }
 
 function mapIdToRkiObjectId(mapId: number) {
-  const idMap: {[key: number]: number} = {
+  const idMap: { [key: number]: number } = {
     399: 1, //"SK Flensburg",
     400: 2, //"SK Kiel",
     402: 3, //"SK Lübeck",
@@ -199,7 +192,7 @@ function mapIdToRkiObjectId(mapId: number) {
     232: 42, //	"LK Stade",
     233: 43, //	"LK Uelzen",
     234: 44, //	"LK Verden",
-    8244:      45, //"SK Delmenhorst",
+    8244: 45, //"SK Delmenhorst",
     238: 46, //	"SK Emden",
     243: 47, //	"SK Oldenburg",
     245: 48, //	"SK Osnabrück",
@@ -218,7 +211,7 @@ function mapIdToRkiObjectId(mapId: number) {
     250: 61, //	"LK Wittmund",
     160: 62, //	"SK Bremen",
     //      63: "SK, // Bremerhaven",
-    
+
     272: 64, //	"SK Düsseldorf",
     271: 65, //	"SK Duisburg",
     273: 66, //	"SK Essen",
@@ -274,42 +267,42 @@ function mapIdToRkiObjectId(mapId: number) {
     261: 115, //	"LK Soest",
     262: 116, //	"LK Unna",
 
-    310:	143, //	"SK Koblenz",
-    305:	144, //	"LK Ahrweiler",
-    306:	145, //	"LK Altenkirchen",
-    307:	146, //	"LK Bad Kreuznach",
-    308:	147, //	"LK Birkenfeld",
-    309:	148, //	"LK Cochem-Zell",
-    311:	149, //	"LK Mayen-Koblenz",
-    312:	150, //	"LK Neuwied",
-    313:	151, //	"LK Rhein-Hunsrück-Kreis",
-    314:	152, //	"LK Rhein-Lahn-Kreis",
-    315:	153, //	"LK Westerwaldkreis",
-    338:	154, //	"SK Trier",
-    335:	155, //	"LK Bernkastel-Wittlich",
-    336:	156, //	"LK Bitburg-Prüm",
-    339:	157, //	"LK Vulkaneifel",
-    337:	158, //	"LK Trier-Saarburg",
-    319:	159, //	"SK Frankenthal",
-    321:	160, //	"SK Kaiserslautern",
-    324:	161, //	"SK Landau i.d.Pfalz",
-    325:	162, //	"SK Ludwigshafen",
-    327:	163, //	"SK Mainz",
-    328:	164, //	"SK Neustadt a.d.Weinstraße",
+    310: 143, //	"SK Koblenz",
+    305: 144, //	"LK Ahrweiler",
+    306: 145, //	"LK Altenkirchen",
+    307: 146, //	"LK Bad Kreuznach",
+    308: 147, //	"LK Birkenfeld",
+    309: 148, //	"LK Cochem-Zell",
+    311: 149, //	"LK Mayen-Koblenz",
+    312: 150, //	"LK Neuwied",
+    313: 151, //	"LK Rhein-Hunsrück-Kreis",
+    314: 152, //	"LK Rhein-Lahn-Kreis",
+    315: 153, //	"LK Westerwaldkreis",
+    338: 154, //	"SK Trier",
+    335: 155, //	"LK Bernkastel-Wittlich",
+    336: 156, //	"LK Bitburg-Prüm",
+    339: 157, //	"LK Vulkaneifel",
+    337: 158, //	"LK Trier-Saarburg",
+    319: 159, //	"SK Frankenthal",
+    321: 160, //	"SK Kaiserslautern",
+    324: 161, //	"SK Landau i.d.Pfalz",
+    325: 162, //	"SK Ludwigshafen",
+    327: 163, //	"SK Mainz",
+    328: 164, //	"SK Neustadt a.d.Weinstraße",
     //      165:	"SK, // Pirmasens",
-    330:	166, //	"SK Speyer",
-    333:	167, //	"SK Worms",
-    334:	168, //	"SK Zweibrücken",
-    316:	169, //	"LK Alzey-Worms",
-    317:	170, //	"LK Bad Dürkheim",
-    318:	171, //	"LK Donnersbergkreis",
-    320:	172, //	"LK Germersheim",
-    322:	173, //	"LK Kaiserslautern",
-    323:	174, //	"LK Kusel",
-    331:	175, //	"LK Südliche Weinstraße",
-    329:	176, //	"LK Rhein-Pfalz-Kreis",
-    326:	177, //	"LK Mainz-Bingen",
-    332:	178, //	"LK Südwestpfalz",
+    330: 166, //	"SK Speyer",
+    333: 167, //	"SK Worms",
+    334: 168, //	"SK Zweibrücken",
+    316: 169, //	"LK Alzey-Worms",
+    317: 170, //	"LK Bad Dürkheim",
+    318: 171, //	"LK Donnersbergkreis",
+    320: 172, //	"LK Germersheim",
+    322: 173, //	"LK Kaiserslautern",
+    323: 174, //	"LK Kusel",
+    331: 175, //	"LK Südliche Weinstraße",
+    329: 176, //	"LK Rhein-Pfalz-Kreis",
+    326: 177, //	"LK Mainz-Bingen",
+    332: 178, //	"LK Südwestpfalz",
 
     35: 179, //	"SK Stuttgart",
     23: 180, //	"LK Böblingen",
@@ -575,17 +568,17 @@ function mapIdToRkiObjectId(mapId: number) {
     413: 401,	// "LK Altenburger Land",
 
     9011: 404, // "SK Berlin Reinickendorf",
-    9003:	405, // "SK Berlin Charlottenburg-Wilmersdorf",
-    9008:	406, // "SK Berlin Treptow-Köpenick",
-    9002:	407, // "SK Berlin Pankow",
-    9007:	408, // "SK Berlin Neukölln",
-    9010:	409, // "SK Berlin Lichtenberg",
-    9009:	410, // "SK Berlin Marzahn-Hellersdorf",
-    9004:	411, // "SK Berlin Spandau",
-    9005:	412, // "SK Berlin Steglitz-Zehlendorf",
-    9000:	413, // "SK Berlin Mitte",
-    9001:	414, // "SK Berlin Friedrichshain-Kreuzberg",
-    9006:	415, // "SK Berlin Tempelhof-Schöneberg",
+    9003: 405, // "SK Berlin Charlottenburg-Wilmersdorf",
+    9008: 406, // "SK Berlin Treptow-Köpenick",
+    9002: 407, // "SK Berlin Pankow",
+    9007: 408, // "SK Berlin Neukölln",
+    9010: 409, // "SK Berlin Lichtenberg",
+    9009: 410, // "SK Berlin Marzahn-Hellersdorf",
+    9004: 411, // "SK Berlin Spandau",
+    9005: 412, // "SK Berlin Steglitz-Zehlendorf",
+    9000: 413, // "SK Berlin Mitte",
+    9001: 414, // "SK Berlin Friedrichshain-Kreuzberg",
+    9006: 415, // "SK Berlin Tempelhof-Schöneberg",
   };
 
   return idMap[mapId] ?? null;
