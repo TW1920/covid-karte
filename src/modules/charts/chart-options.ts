@@ -1,15 +1,13 @@
-import { ChartOptions } from 'chart.js';
+import { ChartOptions, ChartTypeRegistry, TooltipItem } from 'chart.js';
 
 import { nowPlus12Hours } from '../helpers';
 
-export function commonChartOptions(stacked: boolean): ChartOptions {
-  const panZoomSettings = {
-    enabled: true,
-    rangeMin: { x: new Date(2020, 2) },
-    rangeMax: { x: new Date() },
-    mode: 'x'
-  };
-
+export type TooltipLabelGenerator = (data: TooltipItem<keyof ChartTypeRegistry> ) => string;
+export function commonChartOptions(
+  stacked: boolean,
+  tooltipLabelGenerator: TooltipLabelGenerator,
+  limits: number | undefined,
+): ChartOptions {
   const commonAxisSettings = {
     gridLines: {
       color: 'rgba(255, 255, 255, 0.1)',
@@ -19,31 +17,63 @@ export function commonChartOptions(stacked: boolean): ChartOptions {
   };
 
   return {
-    legend: { display: false },
     animation: { duration: 0 },
     scales: {
-      xAxes: [{
+      x: {
         type: 'time',
         time: {
           unit: 'month',
-          tooltipFormat: 'ddd DD.MM.YYYY'
+          tooltipFormat: 'EEE dd.MM.yyyy',
+          minUnit: 'day'
         },
-        ticks: { 
-          min: '2020-03',
-          max: nowPlus12Hours(),
-        },
+        min: new Date(2020, 2, 1).getTime(),
+        max: nowPlus12Hours().getTime(),
         ...commonAxisSettings
-      }],
-      yAxes: [commonAxisSettings]
+      },
+      y: {
+        min: 0,
+        max: limits,
+        ...commonAxisSettings
+      },
     },
     plugins: {
+      legend: { display: false },
+      tooltip: {
+        mode: 'index',
+        callbacks: {
+          label:  tooltipLabelGenerator
+        }
+      },
       zoom: {
-        pan: panZoomSettings,
-        zoom: panZoomSettings
+        pan: {
+          enabled: true,
+          mode: 'x'
+        },
+        zoom: {
+          mode: 'x',
+          wheel: {
+            enabled: true,
+          },
+          pinch: {
+            enabled: true,
+          },
+          // onZoom: (...args) => console.log(args),
+          // onZoomComplete: (...args) => console.log(args),
+        },
+        limits: {
+          y: {
+            min: limits,
+            max: limits,
+          },
+          x: {
+            min: new Date(2020, 2).getTime(),
+            max: nowPlus12Hours().getTime()
+          },
+        }
       }
     },
     responsive: true,
-    maintainAspectRatio: false
+    maintainAspectRatio: false,
   };
 
 }
